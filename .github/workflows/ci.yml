@@ -1,0 +1,179 @@
+# ================================================================
+#  GitHub Actions CI — l4s5_Anbo
+#
+#  Jobs:
+#    1. test    — Host-based unit tests (Ceedling + Unity + CMock)
+#    2. build   — ARM firmware cross-compilation (arm-none-eabi-gcc)
+#    3. release — Auto-tag + create GitHub Release
+#
+#  Version is defined in CMakeLists.txt via project(VERSION x.y.z).
+#  On push to master, CI detects version changes and auto-releases.
+# ================================================================
+
+name: CI
+
+on:
+  push:
+    branches: [ master, develop ]
+  pull_request:
+    branches: [ master ]
+
+# Cancel previous runs on the same branch (save Actions minutes)
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# ----------------------------------------------------------------
+#  Job 1: Unit Tests
+# ----------------------------------------------------------------
+jobs:
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Ruby & gcc
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ruby ruby-dev build-essential
+
+      - name: Cache Ceedling gem
+        uses: actions/cache@v4
+        with:
+          path: tools/gems
+          key: ceedling-0.31.1-${{ runner.os }}
+
+      - name: Run tests
+        run: |
+          chmod +x test.sh
+          ./test.sh
+
+  # ----------------------------------------------------------------
+  #  Job 2: Firmware Build
+  # ----------------------------------------------------------------
+  build:
+    name: Firmware Build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        build_type: [Debug, Release]
+
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Cache ARM toolchain
+        uses: actions/cache@v4
+        with:
+          path: tools/arm-gnu-toolchain-*
+          key: arm-tc-13.3.rel1-${{ runner.os }}
+
+      - name: Cache CMake & Ninja
+        uses: actions/cache@v4
+        with:
+          path: |
+            tools/cmake-*
+            tools/ninja-*
+          key: cmake-4.0.1-ninja-1.12.1-${{ runner.os }}
+
+      - name: Build firmware (${{ matrix.build_type }})
+        run: |
+          chmod +x build.sh
+          if [ "${{ matrix.build_type }}" = "Release" ]; then
+            ./build.sh --release
+          else
+            ./build.sh
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-${{ matrix.build_type }}
+          path: |
+            build/*.elf
+            build/*.bin
+            build/*.hex
+            build/*.map
+          retention-days: 30
+
+  # ----------------------------------------------------------------
+  #  Job 3: Auto Tag & Release (master push, new version only)
+  # ----------------------------------------------------------------
+  release:
+    name: Auto Tag & Release
+    needs: [test, build]
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # Full history needed to check existing tags
+
+      - name: Extract version from CMakeLists.txt
+        id: version
+        run: |
+          # Parse project(... VERSION x.y.z ...) from CMakeLists.txt
+          VER=$(grep -oP 'project\s*\([^)]*VERSION\s+\K[0-9]+\.[0-9]+\.[0-9]+' CMakeLists.txt)
+          if [ -z "$VER" ]; then
+            echo "ERROR: Cannot extract VERSION from CMakeLists.txt"
+            exit 1
+          fi
+          TAG="v${VER}"
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Detected version: $VER (tag: $TAG)"
+
+      - name: Check if tag already exists
+        id: check_tag
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Tag $TAG already exists — skipping release."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Tag $TAG is new — will create release."
+          fi
+
+      - name: Create tag
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.version.outputs.tag }}" -m "Release ${{ steps.version.outputs.tag }}"
+          git push origin "${{ steps.version.outputs.tag }}"
+
+      - name: Download Release artifacts
+        if: steps.check_tag.outputs.exists == 'false'
+        uses: actions/download-artifact@v4
+        with:
+          name: firmware-Release
+
+      - name: Create GitHub Release
+        if: steps.check_tag.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: "Release ${{ steps.version.outputs.tag }}"
+          files: |
+            *.elf
+            *.bin
+            *.hex
+          generate_release_notes: true
+        with:
+          files: |
+            *.elf
+            *.bin
+            *.hex
+          generate_release_notes: true

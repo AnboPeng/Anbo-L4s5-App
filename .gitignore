@@ -1,0 +1,8 @@
+# Downloaded third-party SDKs (auto-fetched by CMake)
+# Note: anbo/port/stm32l4s5/Lib/ is in anbo/.gitignore (submodule)
+
+# Auto-downloaded ARM toolchain
+tools/
+
+# Build output
+build/
