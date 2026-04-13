@@ -6,13 +6,15 @@
     auto-downloaded to the tools/ directory on first run.
 
     Usage:
-        .\build.ps1              # configure + build (Debug)
-        .\build.ps1 -Clean       # delete build/ and rebuild
-        .\build.ps1 -Release     # build in Release mode
+        .\build.ps1                        # configure + build (Debug)
+        .\build.ps1 -Clean                 # delete build/ and rebuild
+        .\build.ps1 -Release               # build in Release mode
+        .\build.ps1 -Version 1.2.3         # set firmware version
 #>
 param(
     [switch]$Clean,
-    [switch]$Release
+    [switch]$Release,
+    [string]$Version = ''
 )
 $ErrorActionPreference = 'Stop'
 
@@ -101,12 +103,22 @@ if ($Clean -and (Test-Path $BUILD)) {
 $buildType = if ($Release) { 'Release' } else { 'Debug' }
 $toolchain = Join-Path $ROOT 'cmake\arm-none-eabi.cmake'
 
+# Force reconfigure when version is specified (CACHE override)
+if ($Version -and (Test-Path (Join-Path $BUILD 'build.ninja'))) {
+    Write-Host "Reconfiguring for version $Version ..."
+    Remove-Item (Join-Path $BUILD 'CMakeCache.txt') -ErrorAction SilentlyContinue
+}
+
+$versionFlag = @()
+if ($Version) { $versionFlag = @("-DFW_VERSION=$Version") }
+
 if (-not (Test-Path (Join-Path $BUILD 'build.ninja'))) {
     Write-Host ""
     Write-Host "Configuring ($buildType) ..."
     & $cmakeExe -B $BUILD -G Ninja `
         "-DCMAKE_TOOLCHAIN_FILE=$toolchain" `
-        "-DCMAKE_BUILD_TYPE=$buildType"
+        "-DCMAKE_BUILD_TYPE=$buildType" `
+        @versionFlag
     if ($LASTEXITCODE -ne 0) { throw "CMake configure failed" }
 }
 

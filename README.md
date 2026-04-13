@@ -1,4 +1,4 @@
-# l4s5_Anbo
+# Anbo_L4s5_App
 
 Lightweight async microkernel for the **B-L4S5I-IOT01A** development board (STM32L4S5VITx, Cortex-M4F).
 
@@ -12,11 +12,12 @@ Lightweight async microkernel for the **B-L4S5I-IOT01A** development board (STM3
 - ISR-driven USART1 device driver (ST-LINK VCP)
 - Software watchdog (multi-slot: main + per-module) + IWDG hardware watchdog
 - Stop 2 low-power idle with LPTIM1 wakeup + tick compensation
-- **User-triggered deep sleep** (long-press 3 s; wake sources: UART RX / RTC / button / LPTIM; configurable IWDG strategy)
+- **User-triggered deep sleep** (long-press 3 s; wake sources: UART RX / RTC / button / LPTIM / IMU vibration; configurable IWDG strategy)
 - SRAM2 (ECC, Standby-retained) kernel pool placement
 - **Persistent NVM configuration** (internal Flash or external OSPI NOR, multi-page wear-levelling rotation)
 - **Business-level FaultManager** — fault registration, reporting, auto-recovery scanning, FSM integration
 - **Temperature alarm demo** — ADC sensor → Pool async events → FSM controller (Normal/Alarm/Fault) → LED/UART output
+- **IMU vibration detection** — LSM6DSL 6-axis sensor via I2C2, FIFO readout, software vibration thresholding, hardware wake-up from deep sleep via INT1
 
 ## Quick Start
 
@@ -26,7 +27,7 @@ Clone the repository and run the build script for your platform. **No manual too
 
 ```
 git clone --recursive <repo-url>
-cd l4s5_Anbo
+cd Anbo_L4s5_App
 build.bat
 ```
 
@@ -34,7 +35,7 @@ build.bat
 
 ```powershell
 git clone --recursive <repo-url>
-cd l4s5_Anbo
+cd Anbo_L4s5_App
 powershell -ExecutionPolicy Bypass -File .\build.ps1
 ```
 
@@ -42,7 +43,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 
 ```bash
 git clone --recursive <repo-url>
-cd l4s5_Anbo
+cd Anbo_L4s5_App
 chmod +x build.sh
 ./build.sh
 ```
@@ -59,7 +60,8 @@ chmod +x build.sh
 | Debug build (default) | `build.bat` | `.\build.ps1` | `./build.sh` |
 | Release build | `build.bat release` | `.\build.ps1 -Release` | `./build.sh release` |
 | Clean rebuild | `build.bat clean` | `.\build.ps1 -Clean` | `./build.sh clean` |
-| Both | `build.bat clean release` | `.\build.ps1 -Clean -Release` | `./build.sh clean release` |
+| Set version | `build.bat version 1.2.3` | `.\build.ps1 -Version 1.2.3` | `./build.sh version 1.2.3` |
+| All combined | `build.bat clean release version 1.2.3` | `.\build.ps1 -Clean -Release -Version 1.2.3` | `./build.sh clean release version 1.2.3` |
 
 ## Manual CMake Build
 
@@ -68,7 +70,8 @@ If you prefer to use your own toolchain:
 ```bash
 cmake -B build -G Ninja \
     -DCMAKE_TOOLCHAIN_FILE=cmake/arm-none-eabi.cmake \
-    -DCMAKE_BUILD_TYPE=Debug
+    -DCMAKE_BUILD_TYPE=Debug \
+    -DFW_VERSION=1.2.3
 cmake --build build
 ```
 
@@ -102,30 +105,73 @@ After a successful build, the following files are generated in `build/`:
 
 | File | Description |
 |------|-------------|
-| `l4s5_anbo` | ELF executable (with debug symbols) |
-| `l4s5_anbo.bin` | Raw binary (for flashing) |
-| `l4s5_anbo.hex` | Intel HEX (for ST-LINK) |
-| `l4s5_anbo.map` | Linker map file |
+| `l4s5_anbo_x.y.z.elf` | ELF executable (with debug symbols) |
+| `l4s5_anbo_x.y.z.bin` | Raw binary (for flashing) |
+| `l4s5_anbo_x.y.z.hex` | Intel HEX (for ST-LINK) |
+| `l4s5_anbo_x.y.z.map` | Linker map file |
+
+> Version `x.y.z` defaults to `0.1.0` (from `project(VERSION ...)`) if not specified.
+> Override with `-DFW_VERSION=1.2.3` or via build script `version` parameter.
 
 ## Flashing
 
 Connect the B-L4S5I-IOT01A board via USB (ST-LINK), then:
 
+### GUI (STM32CubeProgrammer)
+
+1. Open **STM32CubeProgrammer**, select **ST-LINK** connection, click **Connect**
+2. Click **Open file**, select `build/l4s5_anbo_0.1.0.hex`
+3. Click **Download** — the start address is auto-detected from the HEX file
+4. Click **Disconnect**, press the board RESET button
+
+### CLI
+
 ```bash
 # Using STM32CubeProgrammer CLI
-STM32_Programmer_CLI -c port=SWD -w build/l4s5_anbo.bin 0x08000000 -v -rst
+STM32_Programmer_CLI -c port=SWD -w build/l4s5_anbo_0.1.0.bin 0x08000000 -v -rst
 
 # Or using OpenOCD
 openocd -f interface/stlink.cfg -f target/stm32l4x.cfg \
-    -c "program build/l4s5_anbo.bin 0x08000000 verify reset exit"
+    -c "program build/l4s5_anbo_0.1.0.bin 0x08000000 verify reset exit"
 ```
 
 Serial output is available on the ST-LINK Virtual COM Port (USART1, 115200-8N1).
 
+## Unit Testing
+
+Kernel modules are tested on the **host PC** (x86/x64) using [Ceedling](https://github.com/ThrowTheSwitch/Ceedling) (Unity + CMock). Hardware-dependent code is auto-mocked; a thin arch shim (`test/support/anbo_arch_host.c`) provides tick/IRQ stubs.
+
+### Running Tests
+
+Test scripts auto-download Ruby and Ceedling on first run — no manual setup needed.
+
+| Action | CMD | PowerShell | Bash |
+|--------|-----|------------|------|
+| Run all tests | `test.bat` | `.\test.ps1` | `./test.sh` |
+| Single module | `test.bat test:anbo_rb` | `.\test.ps1 test:anbo_rb` | `./test.sh test:anbo_rb` |
+| Clean artifacts | `test.bat clean` | `.\test.ps1 clean` | `./test.sh clean` |
+
+### Test Modules
+
+| File | Covers |
+|------|--------|
+| `test/test_anbo_rb.c` | Ring buffer (push/pop, wrap, overflow) |
+| `test/test_anbo_timer.c` | Software timer (one-shot, periodic, cancel) |
+| `test/test_anbo_callback.c` | EBus subscribe/publish callback dispatch |
+| `test/test_anbo_isr.c` | ISR-safe pool alloc + event queue post |
+
+### Configuration
+
+Test settings are in `project.yml` (Ceedling config). Key overrides for host testing:
+
+- `ANBO_CONF_WDT=0`, `ANBO_CONF_IDLE_SLEEP=0` — disable hardware-only features
+- `ANBO_CONF_TRACE=0` — disable instrumentation hooks
+- Pool / EBus / Timer counts reduced to minimal sizes for fast host execution
+
 ## Project Structure
 
 ```
-l4s5_Anbo/
+Anbo_L4s5_App/
 ├── CMakeLists.txt                  # Top-level firmware target
 ├── build.bat / build.ps1 / build.sh  # One-click build scripts
 ├── cmake/
@@ -137,6 +183,7 @@ l4s5_Anbo/
 │   ├── app_fault.h                 # Fault ID / severity / state definitions
 │   ├── app_fault_mgr.h / .c        # FaultManager (register/report/clear/recover)
 │   ├── app_sensor.h / .c           # ADC temperature sensor (Pool producer + fault reporting)
+│   ├── app_imu.h / .c              # IMU vibration detection + deep sleep arm (LSM6DSL)
 │   ├── app_controller.h / .c       # 3-state FSM (Normal/Alarm/Fault) + WDT slot
 │   ├── app_ui.h / .c               # LED blink + UART temp display
 │   └── app_sleep.h / .c            # Deep sleep (decomposed: prepare/stop2/check/maintenance/resume)
@@ -151,6 +198,8 @@ l4s5_Anbo/
 │           ├── b_l4s5i_hw.*        # Board hardware init
 │           ├── b_l4s5i_port.c      # Arch HAL implementation
 │           ├── b_l4s5i_uart_drv.*  # ISR-driven USART1 driver
+│           ├── b_l4s5i_i2c_drv.*   # I2C2 master driver (LSM6DSL communication)
+│           ├── b_l4s5i_imu_drv.*   # LSM6DSL 6-axis IMU driver (FIFO + wake-up config)
 │           ├── b_l4s5i_flash_drv.* # Internal Flash NVM driver
 │           ├── b_l4s5i_ospi_drv.*  # OCTOSPI1 bus + MX25R6435F chip driver
 │           ├── b_l4s5i_ospi_flash_drv.* # External NVM logic (chip-agnostic)
@@ -208,7 +257,9 @@ Pool_Dispatch → EBus broadcast APP_SIG_TEMP_UPDATE
 |--------|-------------|-------------|
 | `ANBO_SIG_USER_BUTTON` (0x0020) | Button handler (arm blink timer) | Sleep module (long-press 3 s) |
 | `ANBO_SIG_UART_RX` (0x0010) | UART echo handler | — |
+| `APP_SIG_IMU_INT1` (0x0030) | IMU FIFO readout handler | — |
 | `APP_SIG_TEMP_UPDATE` (0x0100) | Controller FSM (threshold check) | UI (UART temp display) |
+| `APP_SIG_IMU_UPDATE` (0x0110) | Vibration log output | — |
 | `APP_SIG_THRESHOLD_SET` (0x0101) | Controller FSM (update threshold) | — |
 | `APP_SIG_ALARM_STATE` (0x0102) | UI (LED blink rate) | — |
 | `APP_SIG_FAULT_SET` (0x0200) | Controller FSM (enter Fault state) | — |
@@ -260,6 +311,9 @@ Pool_Dispatch → EBus broadcast APP_SIG_TEMP_UPDATE
 | User Button | PC13 | EXTI falling edge, pull-up |
 | USART1 TX (VCP) | PB6 | AF7 |
 | USART1 RX (VCP) | PB7 | AF7 |
+| I2C2 SCL | PB10 | AF4, open-drain |
+| I2C2 SDA | PB11 | AF4, open-drain |
+| IMU INT1 (LSM6DSL) | PD11 | EXTI rising edge (wake-up from Stop 2) |
 
 ## License
 

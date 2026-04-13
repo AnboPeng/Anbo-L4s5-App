@@ -77,6 +77,7 @@
 #include "anbo_pool.h"
 #include "app_fault_mgr.h"
 #include "app_sensor.h"
+#include "app_imu.h"
 #include "app_controller.h"
 #include "app_ui.h"
 #include "app_sleep.h"
@@ -359,9 +360,8 @@ static void app_init(void)
     App_Controller_Init();
     App_UI_Init();
     App_Sensor_Init();
+    App_IMU_Init();
 #endif
-
-    /* Drain all module-init log messages before the banner */
     Anbo_Log_DrainAll();
 
     /* ---- 5. Boot banner ---- */
@@ -374,6 +374,7 @@ static void app_init(void)
     ANBO_LOGI("  Pools   -> SRAM2 (ECC, retained)");
     ANBO_LOGI("  Stack   = 32 KB (top of SRAM1)");
     ANBO_LOGI("  USART1  = ISR TX/RX  115200 VCP");
+    ANBO_LOGI("  IMU     = LSM6DSL I2C2 @0x6A");
 #if ANBO_CONF_POOL
     ANBO_LOGI("  Pool    = %u x %uB async events",
               ANBO_CONF_POOL_BLOCK_COUNT, ANBO_CONF_POOL_BLOCK_SIZE);

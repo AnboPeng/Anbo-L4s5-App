@@ -3,10 +3,11 @@ REM ================================================================
 REM  One-click build for l4s5_Anbo (Windows CMD / .bat)
 REM
 REM  Usage:
-REM      build.bat                  configure + build (Debug)
-REM      build.bat clean            delete build\ and rebuild
-REM      build.bat release          Release mode
-REM      build.bat clean release    both
+REM      build.bat                       configure + build (Debug)
+REM      build.bat clean                  delete build\ and rebuild
+REM      build.bat release                Release mode
+REM      build.bat version 1.2.3          set firmware version
+REM      build.bat clean release version 1.2.3   all combined
 REM ================================================================
 setlocal
 
@@ -20,10 +21,15 @@ set "NINJA_VER=1.12.1"
 REM ---- Parse args ----
 set "DO_CLEAN=0"
 set "BUILD_TYPE=Debug"
+set "FW_VER="
 :parse_args
 if "%~1"=="" goto args_done
 if /i "%~1"=="clean"   set "DO_CLEAN=1"
 if /i "%~1"=="release" set "BUILD_TYPE=Release"
+if /i "%~1"=="version" (
+    set "FW_VER=%~2"
+    shift
+)
 shift
 goto parse_args
 :args_done
@@ -116,10 +122,20 @@ if exist "%BUILD%\CMakeCache.txt" (
 
 REM ---- Configure ----
 set "TOOLCHAIN=%ROOT%\cmake\arm-none-eabi.cmake"
+
+REM Force reconfigure when version is specified (CACHE override)
+if defined FW_VER if exist "%BUILD%\build.ninja" (
+    echo Reconfiguring for version %FW_VER% ...
+    del "%BUILD%\CMakeCache.txt" 2>nul
+)
+
+set "VERSION_FLAG="
+if defined FW_VER set "VERSION_FLAG=-DFW_VERSION=%FW_VER%"
+
 if not exist "%BUILD%\build.ninja" (
     echo.
     echo Configuring [%BUILD_TYPE%] ...
-    "%CMAKE_EXE%" -B "%BUILD%" -G Ninja "-DCMAKE_TOOLCHAIN_FILE=%TOOLCHAIN%" "-DCMAKE_BUILD_TYPE=%BUILD_TYPE%"
+    "%CMAKE_EXE%" -B "%BUILD%" -G Ninja "-DCMAKE_TOOLCHAIN_FILE=%TOOLCHAIN%" "-DCMAKE_BUILD_TYPE=%BUILD_TYPE%" %VERSION_FLAG%
     if errorlevel 1 (
         echo ERROR: CMake configure failed.
         exit /b 1
@@ -140,7 +156,7 @@ echo.
 echo ============================================================
 echo   BUILD SUCCESSFUL
 echo   Output:
-for %%F in ("%BUILD%\l4s5_anbo.elf" "%BUILD%\l4s5_anbo.bin" "%BUILD%\l4s5_anbo.hex" "%BUILD%\l4s5_anbo.map") do (
+for %%F in ("%BUILD%\l4s5_anbo_*.elf" "%BUILD%\l4s5_anbo_*.bin" "%BUILD%\l4s5_anbo_*.hex" "%BUILD%\l4s5_anbo_*.map") do (
     if exist "%%~F" echo     %%~nxF     %%~zF bytes
 )
 echo ============================================================

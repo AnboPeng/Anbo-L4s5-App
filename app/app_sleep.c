@@ -46,6 +46,8 @@
 #include "b_l4s5i_hw.h"
 #include "b_l4s5i_uart_drv.h"
 #include "app_sensor.h"
+#include "app_imu.h"
+#include "b_l4s5i_imu_drv.h"
 
 #if ANBO_CONF_WDT
 #include "anbo_wdt.h"
@@ -63,6 +65,7 @@ extern void App_UI_Stop(void);
 extern void App_UI_Resume(void);
 extern void App_Controller_Stop(void);
 extern void App_Controller_Resume(void);
+extern void App_IMU_Resume(void);
 
 /* ================================================================== */
 /*  Module state                                                       */
@@ -152,11 +155,15 @@ typedef enum {
     WAKE_UART,
     WAKE_RTC,
     WAKE_BUTTON,
+    WAKE_IMU,
     WAKE_TEMP,
 } WakeReason;
 
 /** UART RXNE flag — sampled in sleep_enter_stop2(), consumed by sleep_check_wake(). */
 static uint32_t s_uart_woke;
+
+/** IMU INT1 (PD11) EXTI pending — sampled after Stop 2 wakeup. */
+static uint32_t s_imu_woke;
 
 /* -------------------------------------------------------------- */
 
@@ -169,6 +176,10 @@ static void sleep_prepare(int32_t entry_temp)
               s_wake_timeout_s,
               (int)(entry_temp / 10),
               (int)(entry_temp % 10));
+
+    /* Arm IMU wake-up BEFORE draining UART so the config log is visible,
+     * and the accelerometer has time to settle while we drain. */
+    App_IMU_SleepArm();
 
     /* Drain all pending log data before shutting down.
      * Loop Flush() until log_rb is empty → all data in UART TX ring buffer.
@@ -234,6 +245,7 @@ static uint32_t sleep_enter_stop2(void)
 
     __HAL_PWR_CLEAR_FLAG(PWR_FLAG_WU);
     __HAL_GPIO_EXTI_CLEAR_IT(BSP_BTN_PIN);
+    __HAL_GPIO_EXTI_CLEAR_IT(GPIO_PIN_11);   /* IMU INT1 (PD11) */
 
     __disable_irq();
 
@@ -250,6 +262,11 @@ static uint32_t sleep_enter_stop2(void)
     NVIC_ClearPendingIRQ(RTC_WKUP_IRQn);
 
     s_uart_woke = (USART1->ISR & USART_ISR_RXNE_RXFNE);
+    s_imu_woke  = __HAL_GPIO_EXTI_GET_IT(GPIO_PIN_11)
+               || HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_11);
+    if (s_imu_woke) {
+        __HAL_GPIO_EXTI_CLEAR_IT(GPIO_PIN_11);
+    }
 
     __enable_irq();   /* may jump to RTC_WKUP_IRQHandler if RTC fired */
 
@@ -285,6 +302,14 @@ static WakeReason sleep_check_wake(uint32_t total_ms)
         g_rtc_fired = 0;
         ANBO_LOGI("Sleep: woken by button (%u ms asleep)", total_ms);
         return WAKE_BUTTON;
+    }
+
+    /* Priority 4: IMU vibration → unconditional full wake */
+    if (s_imu_woke) {
+        uint8_t src;
+        BSP_IMU_ReadWakeUpSrc(&src);  /* clear latch so INT1 goes LOW */
+        ANBO_LOGI("Sleep: woken by IMU vibration (%u ms asleep)", total_ms);
+        return WAKE_IMU;
     }
 
     return WAKE_NONE;
@@ -349,6 +374,7 @@ static void sleep_resume(void)
     App_Sensor_Resume();
     App_UI_Resume();
     App_Controller_Resume();
+    App_IMU_Resume();
 
     ANBO_LOGI("Sleep: system active");
 }

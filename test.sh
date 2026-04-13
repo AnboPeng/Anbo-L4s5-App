@@ -4,7 +4,7 @@
 #
 #  Fully self-bootstrapping: auto-installs Ruby, gcc, and Ceedling
 #  via system package manager if missing. Ceedling gem is installed
-#  locally in tools/gems — no global gem pollution.
+#  locally in tools/gems â€” no global gem pollution.
 #
 #  Usage:
 #      ./test.sh                   run all tests
@@ -53,7 +53,7 @@ pkg_install() {
 if ! command -v ruby &>/dev/null; then
     echo ""
     echo "============================================================"
-    echo "  Ruby not found — installing via package manager ..."
+    echo "  Ruby not found â€” installing via package manager ..."
     echo "============================================================"
     if ! pkg_install "ruby ruby-dev" "ruby" "ruby" "ruby ruby-devel"; then
         echo ""
@@ -77,7 +77,7 @@ echo "[OK] Ruby: $(ruby --version)"
 if ! command -v gcc &>/dev/null; then
     echo ""
     echo "============================================================"
-    echo "  gcc not found — installing via package manager ..."
+    echo "  gcc not found â€” installing via package manager ..."
     echo "============================================================"
     if ! pkg_install "build-essential" "gcc" "base-devel" "gcc gcc-c++"; then
         echo ""
@@ -99,7 +99,7 @@ export PATH="$GEM_HOME/bin:$PATH"
 if ! "$GEM_HOME/bin/ceedling" version &>/dev/null 2>&1; then
     echo ""
     echo "============================================================"
-    echo "  Ceedling not found — installing gem v${CEEDLING_VER} ..."
+    echo "  Ceedling not found â€” installing gem v${CEEDLING_VER} ..."
     echo "============================================================"
     gem install ceedling -v "$CEEDLING_VER" --no-document
     echo "Ceedling ready."
@@ -122,7 +122,7 @@ if [ -d "$BUILD_TEST" ]; then
             *)             expected="ELF" ;;
         esac
         if ! echo "$obj_arch" | grep -q "$expected"; then
-            echo "[CLEAN] Stale build cache detected (wrong arch) — cleaning..."
+            echo "[CLEAN] Stale build cache detected (wrong arch) â€” cleaning..."
             rm -rf "$BUILD_TEST"
         fi
     fi
