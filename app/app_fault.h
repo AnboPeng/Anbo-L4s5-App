@@ -52,6 +52,9 @@ typedef enum {
     FAULT_SENSOR_RANGE   = 0x00,    /**< ADC reading out of physical range */
     FAULT_SENSOR_TIMEOUT = 0x01,    /**< No data for extended period */
 
+    /* IMU subsystem 0x08-0x0F */
+    FAULT_IMU_COMM       = 0x08,    /**< I2C communication failure with LSM6DSL */
+
     /* Power subsystem 0x10-0x1F */
     FAULT_POWER_UNDERVOLT = 0x10,
 

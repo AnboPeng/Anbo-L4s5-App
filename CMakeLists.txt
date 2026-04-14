@@ -37,6 +37,7 @@ add_subdirectory(anbo)
 
 # ---- Firmware executable ----
 set(FIRMWARE l4s5_anbo)
+set(FW_OUTPUT_NAME ${FIRMWARE}_${FW_VERSION})
 
 # Output with .elf extension (arm-none-eabi convention)
 set(CMAKE_EXECUTABLE_SUFFIX .elf)
@@ -46,6 +47,7 @@ add_executable(${FIRMWARE}
     app/app_config.c
     app/app_fault_mgr.c
     app/app_sensor.c
+    app/app_imu.c
     app/app_controller.c
     app/app_ui.c
     app/app_sleep.c
@@ -57,19 +59,22 @@ target_link_libraries(${FIRMWARE} PRIVATE
     anbo_kernel
 )
 
+# Versioned output name: l4s5_anbo_x.y.z.elf
+set_target_properties(${FIRMWARE} PROPERTIES OUTPUT_NAME ${FW_OUTPUT_NAME})
+
 # Linker script
 target_link_options(${FIRMWARE} PRIVATE
     -T${PORT_LINKER_SCRIPT}
-    -Wl,-Map=${CMAKE_BINARY_DIR}/${FIRMWARE}.map,--cref
+    -Wl,-Map=${CMAKE_BINARY_DIR}/${FW_OUTPUT_NAME}.map,--cref
     -Wl,--print-memory-usage
 )
 
 # ---- Post-build: generate .bin and .hex ----
 add_custom_command(TARGET ${FIRMWARE} POST_BUILD
     COMMAND ${CMAKE_OBJCOPY} -O binary $<TARGET_FILE:${FIRMWARE}>
-            ${CMAKE_BINARY_DIR}/${FIRMWARE}.bin
+            ${CMAKE_BINARY_DIR}/${FW_OUTPUT_NAME}.bin
     COMMAND ${CMAKE_OBJCOPY} -O ihex   $<TARGET_FILE:${FIRMWARE}>
-            ${CMAKE_BINARY_DIR}/${FIRMWARE}.hex
+            ${CMAKE_BINARY_DIR}/${FW_OUTPUT_NAME}.hex
     COMMAND ${CMAKE_SIZE}    $<TARGET_FILE:${FIRMWARE}>
-    COMMENT "Generating ${FIRMWARE}.bin / .hex and printing size"
+    COMMENT "Generating ${FW_OUTPUT_NAME}.bin / .hex and printing size"
 )

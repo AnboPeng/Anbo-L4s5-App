@@ -1,0 +1,13 @@
+# Default: auto-detect
+* text=auto
+
+# Shell scripts must always use LF (even on Windows checkout)
+*.sh text eol=lf
+
+# Batch files can use CRLF
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Linker script / assembly
+*.ld text eol=lf
+*.s text eol=lf

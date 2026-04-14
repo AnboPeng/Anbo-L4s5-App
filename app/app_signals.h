@@ -43,6 +43,11 @@
 /** Alarm state toggled.         param: 0 = normal, 1 = alarm */
 #define APP_SIG_ALARM_STATE     0x0102u
 
+/* ---- IMU domain (0x0110+) ---- */
+
+/** IMU reading updated.  PoolEvent payload: ImuEvent (accel + gyro) */
+#define APP_SIG_IMU_UPDATE      0x0110u
+
 /* ---- Fault Manager signals (0x0200+) ---- */
 
 /** A fault has become ACTIVE.   PoolEvent payload: FaultEvent */

@@ -84,7 +84,7 @@
  *        0 = silent maintenance wake (lower power, no UART TX).
  */
 #ifndef APP_CONF_SLEEP_MAINTENANCE_LOG
-#define APP_CONF_SLEEP_MAINTENANCE_LOG    1
+#define APP_CONF_SLEEP_MAINTENANCE_LOG    0
 #endif
 
 /* ---- Internal Flash geometry (BACKEND=0) ---- */

@@ -7,10 +7,11 @@
 # auto-downloaded to the tools/ directory on first run.
 #
 # Usage:
-#   ./build.sh              # configure + build (Debug)
-#   ./build.sh clean        # delete build/ and rebuild
-#   ./build.sh release      # build in Release mode
-#   (--clean / --release also accepted)
+#   ./build.sh                        # configure + build (Debug)
+#   ./build.sh clean                  # delete build/ and rebuild
+#   ./build.sh release                # build in Release mode
+#   ./build.sh version 1.2.3          # set firmware version
+#   (--clean / --release / --version also accepted)
 # ================================================================
 set -euo pipefail
 
@@ -25,12 +26,15 @@ NINJA_VER="1.12.1"
 # ---- Parse args ----
 CLEAN=0
 BUILD_TYPE="Debug"
-for arg in "$@"; do
-    case "$arg" in
+FW_VER=""
+while [ $# -gt 0 ]; do
+    case "$1" in
         clean|--clean)     CLEAN=1 ;;
         release|--release) BUILD_TYPE="Release" ;;
-        *)                 echo "Unknown option: $arg"; exit 1 ;;
+        version|--version) shift; FW_VER="$1" ;;
+        *)                 echo "Unknown option: $1"; exit 1 ;;
     esac
+    shift
 done
 
 # ---- Detect host ----
@@ -143,7 +147,7 @@ fi
 # ================================================================
 if [ -f "$BUILD/CMakeCache.txt" ]; then
     if grep -q '[A-Za-z]:/' "$BUILD/CMakeCache.txt" 2>/dev/null; then
-        echo "Detected stale Windows CMake cache — cleaning build/ ..."
+        echo "Detected stale Windows CMake cache â€” cleaning build/ ..."
         rm -rf "$BUILD"
     fi
 fi
@@ -153,12 +157,21 @@ fi
 # ================================================================
 TOOLCHAIN="$ROOT/cmake/arm-none-eabi.cmake"
 
+# Force reconfigure when version is specified (CACHE override)
+if [ -n "$FW_VER" ] && [ -f "$BUILD/build.ninja" ]; then
+    echo "Reconfiguring for version $FW_VER ..."
+    rm -f "$BUILD/CMakeCache.txt"
+fi
+
 if [ ! -f "$BUILD/build.ninja" ]; then
     echo ""
     echo "Configuring ($BUILD_TYPE) ..."
+    VERSION_FLAG=""
+    if [ -n "$FW_VER" ]; then VERSION_FLAG="-DFW_VERSION=$FW_VER"; fi
     "$CMAKE_EXE" -B "$BUILD" -G Ninja \
         "-DCMAKE_TOOLCHAIN_FILE=$TOOLCHAIN" \
-        "-DCMAKE_BUILD_TYPE=$BUILD_TYPE"
+        "-DCMAKE_BUILD_TYPE=$BUILD_TYPE" \
+        $VERSION_FLAG
 fi
 
 # ================================================================
