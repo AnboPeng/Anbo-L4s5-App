@@ -53,7 +53,7 @@ echo ============================================================
 if not exist "%TOOLS%" mkdir "%TOOLS%"
 set "CMAKE_URL=https://github.com/Kitware/CMake/releases/download/v%CMAKE_VER%/cmake-%CMAKE_VER%-windows-x86_64.zip"
 set "CMAKE_ZIP=%TOOLS%\cmake.zip"
-powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri '%CMAKE_URL%' -OutFile '%CMAKE_ZIP%' -UseBasicParsing"
+curl.exe -L -o "%CMAKE_ZIP%" "%CMAKE_URL%"
 if not exist "%CMAKE_ZIP%" (
     echo ERROR: CMake download failed.
     exit /b 1
@@ -87,7 +87,7 @@ echo ============================================================
 if not exist "%TOOLS%" mkdir "%TOOLS%"
 set "NINJA_URL=https://github.com/ninja-build/ninja/releases/download/v%NINJA_VER%/ninja-win.zip"
 set "NINJA_ZIP=%TOOLS%\ninja.zip"
-powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri '%NINJA_URL%' -OutFile '%NINJA_ZIP%' -UseBasicParsing"
+curl.exe -L -o "%NINJA_ZIP%" "%NINJA_URL%"
 if not exist "%NINJA_ZIP%" (
     echo ERROR: Ninja download failed.
     exit /b 1
