@@ -365,6 +365,15 @@ static void sleep_resume(void)
         BSP_RTC_StopWakeup();
     }
 
+    /*
+     * Snap all running timer deadlines forward BEFORE resuming modules.
+     * During deep sleep the tick counter advanced by the total elapsed
+     * time, so many timers now appear "expired".  Without compensation
+     * the first Anbo_Timer_Update() would fire every pending callback
+     * in one burst — a callback storm.
+     */
+    Anbo_Timer_CompensateAll(Anbo_Arch_GetTick());
+
 #if ANBO_CONF_WDT
     if (s_wdt_slot >= 0) {
         Anbo_WDT_Resume((Anbo_WDT_Slot)s_wdt_slot);
