@@ -10,7 +10,7 @@
 #   -DARM_TC_VERSION=13.3.rel1  Override the ARM toolchain release
 # ==================================================================
 cmake_minimum_required(VERSION 3.18)
-project(l4s5_Anbo VERSION 0.1.1 LANGUAGES C ASM)
+project(l4s5_Anbo VERSION 0.1.2 LANGUAGES C ASM)
 
 # ---- Firmware Version ----
 # Override at configure time:  cmake -DFW_VERSION=1.2.3 ...
