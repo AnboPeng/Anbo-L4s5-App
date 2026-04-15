@@ -48,8 +48,11 @@ function Ensure-Tool {
     New-Item -ItemType Directory -Force $TOOLS | Out-Null
     $archive = Join-Path $TOOLS $ArchiveName
 
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    Invoke-WebRequest -Uri $Url -OutFile $archive -UseBasicParsing
+    Write-Host "Downloading using native curl.exe..."
+    curl.exe -L -o $archive $Url
+    if ($LASTEXITCODE -ne 0) { 
+        throw "$Name download failed via curl.exe" 
+    }
 
     Write-Host "Extracting $ArchiveName ..."
     Expand-Archive -Path $archive -DestinationPath $TOOLS -Force
