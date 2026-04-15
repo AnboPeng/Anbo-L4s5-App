@@ -48,7 +48,7 @@ set "RUBY_URL=https://github.com/oneclick/rubyinstaller2/releases/download/RubyI
 set "RUBY_ARCHIVE=%TOOLS%\ruby.7z"
 
 echo Downloading %RUBY_URL% ...
-powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri '%RUBY_URL%' -OutFile '%RUBY_ARCHIVE%' -UseBasicParsing"
+curl.exe -L -o "%RUBY_ARCHIVE%" "%RUBY_URL%"
 if not exist "%RUBY_ARCHIVE%" (
     echo ERROR: Ruby download failed.
     exit /b 1
@@ -148,7 +148,7 @@ set "W64DEV_URL=https://github.com/skeeto/w64devkit/releases/download/v%W64DEV_V
 set "W64DEV_ZIP=%TOOLS%\w64devkit.zip"
 
 echo Downloading %W64DEV_URL% ...
-powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri '%W64DEV_URL%' -OutFile '%W64DEV_ZIP%' -UseBasicParsing"
+curl.exe -L -o "%W64DEV_ZIP%" "%W64DEV_URL%"
 if not exist "%W64DEV_ZIP%" (
     echo ERROR: w64devkit download failed.
     exit /b 1
@@ -191,6 +191,8 @@ REM  5. Run Ceedling
 REM ================================================================
 echo.
 cd /d "%ROOT%"
+
+set RUBYOPT=-rpathname
 
 if "%~1"=="" (
     echo Running: ceedling test:all
