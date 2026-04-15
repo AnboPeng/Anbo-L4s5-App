@@ -5,13 +5,14 @@ Lightweight async microkernel for the **B-L4S5I-IOT01A** development board (STM3
 ## Features
 
 - C99, fully static memory (no `malloc`, no `sprintf`)
-- Event bus (pub/sub), software timers, event-driven FSM
+- Event bus (pub/sub), soft/hard timers (ISR-driven 1 ms accuracy), event-driven FSM
 - **Fixed-size block pool + async event pointer queue** (zero-copy ISR→main dispatch)
 - **Instrumentation trace hooks** (compile-time switchable, zero overhead when off)
 - Async ring-buffer log system (zero-stdio formatting)
 - ISR-driven USART1 device driver (ST-LINK VCP)
 - Software watchdog (multi-slot: main + per-module) + IWDG hardware watchdog
 - Stop 2 low-power idle with LPTIM1 wakeup + tick compensation
+- **Deep-sleep timer compensation** — `Anbo_Timer_CompensateAll()` snaps all deadlines forward on wake, preventing callback storms
 - **User-triggered deep sleep** (long-press 3 s; wake sources: UART RX / RTC / button / LPTIM / IMU vibration; configurable IWDG strategy)
 - SRAM2 (ECC, Standby-retained) kernel pool placement
 - **Persistent NVM configuration** (internal Flash or external OSPI NOR, multi-page wear-levelling rotation)

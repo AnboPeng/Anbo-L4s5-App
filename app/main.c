@@ -437,8 +437,10 @@ static void app_run(void)
     for (;;) {
         uint32_t now = Anbo_Arch_GetTick();
 
-        /* Drive soft timers (Task B fires from here) */
+#if !ANBO_CONF_TIMER_ISR
+        /* Soft-timer mode: drive timers from main loop (best-effort accuracy) */
         Anbo_Timer_Update(now);
+#endif
 
         /* Drain Pool async event queue */
 #if ANBO_CONF_POOL
